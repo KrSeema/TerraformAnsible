@@ -35,8 +35,7 @@ variable "availability_zone" {
   default     = "ap-southeast-2a"
 }
 
-variable "admin_cidr" {
-  description = "Public IP address allowed to SSH into the web server"
+variable "my_ip_cidr" {
+  description = "Current public IP address allowed to SSH into the web server"
   type        = string
-  default     = "49.36.181.234/32"
 }

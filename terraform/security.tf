@@ -11,7 +11,7 @@ resource "aws_security_group" "web" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.admin_cidr]
+    cidr_blocks = [var.my_ip_cidr]
   }
 
   # HTTP access from anywhere

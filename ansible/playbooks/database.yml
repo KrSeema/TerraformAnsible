@@ -1,0 +1,119 @@
+---
+- name: Install and configure MongoDB
+  hosts: dbservers
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Install MongoDB prerequisites
+      apt:
+        name:
+          - gnupg
+          - curl
+          - python3-pymongo
+          - python3-pip
+        state: present
+        update_cache: yes
+
+    - name: Download MongoDB GPG key
+      get_url:
+        url: https://pgp.mongodb.com/server-8.0.asc
+        dest: /tmp/server-8.0.asc
+        mode: '0644'
+
+    - name: Add MongoDB GPG key
+      command: >
+        gpg --dearmor --yes
+        --output /usr/share/keyrings/mongodb-server-8.0.gpg
+        /tmp/server-8.0.asc
+      args:
+        creates: /usr/share/keyrings/mongodb-server-8.0.gpg
+
+    - name: Add MongoDB 8.0 repository
+      copy:
+        dest: /etc/apt/sources.list.d/mongodb-org-8.0.sources
+        content: |
+          Types: deb
+          URIs: https://repo.mongodb.org/apt/ubuntu
+          Suites: noble/mongodb-org/8.0
+          Components: multiverse
+          Architectures: amd64 arm64
+          Signed-By: /usr/share/keyrings/mongodb-server-8.0.gpg
+        mode: '0644'
+
+    - name: Install MongoDB
+      apt:
+        name: mongodb-org
+        state: present
+        update_cache: yes
+
+    - name: Configure MongoDB network binding
+      replace:
+        path: /etc/mongod.conf
+        regexp: '^(\s*bindIp:\s*).*'
+        replace: '\g<1>127.0.0.1,{{ ansible_facts["default_ipv4"]["address"] }}'
+      notify: Restart MongoDB
+
+    - name: Enable and start MongoDB
+      systemd:
+        name: mongod
+        state: started
+        enabled: yes
+
+    - name: Verify MongoDB administrator authentication
+      shell: |
+        mongosh --quiet \
+          --username "{{ vault_mongodb_admin_user }}" \
+          --password "{{ vault_mongodb_admin_password }}" \
+          --authenticationDatabase admin \
+          --eval 'db.adminCommand({ ping: 1 })'
+      no_log: true
+      changed_when: false
+
+    - name: Enable MongoDB authorization
+      blockinfile:
+        path: /etc/mongod.conf
+        marker: "# {mark} ANSIBLE MANAGED MONGODB SECURITY"
+        block: |
+          security:
+            authorization: enabled
+      notify: Restart MongoDB
+
+    - name: Install PyMongo 4 or later
+      ansible.builtin.pip:
+        name: "pymongo>=4.0"
+        state: present
+        break_system_packages: true
+
+    - name: Ensure TravelMemory application user exists
+      community.mongodb.mongodb_user:
+        database: TravelMemory
+        name: "{{ vault_mongodb_app_user }}"
+        password: "{{ vault_mongodb_app_password }}"
+        roles:
+          - role: readWrite
+            db: travelmemory
+        state: present
+        update_password: on_create        
+        login_host: 127.0.0.1
+        login_port: 27017
+        login_user: "{{ vault_mongodb_admin_user }}"
+        login_password: "{{ vault_mongodb_admin_password }}"
+        login_database: admin
+      no_log: true
+
+    - name: Verify TravelMemory application user authentication
+      shell: |
+        mongosh --quiet \
+          --username "{{ vault_mongodb_app_user }}" \
+          --password "{{ vault_mongodb_app_password }}" \
+          --authenticationDatabase TravelMemory \
+          --eval 'db.runCommand({ connectionStatus: 1 })'          
+      no_log: true
+      changed_when: false
+
+  handlers:
+    - name: Restart MongoDB
+      systemd:
+        name: mongod
+        state: restarted

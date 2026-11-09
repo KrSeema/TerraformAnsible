@@ -1,0 +1,90 @@
+
+---
+- name: Deploy TravelMemory Frontend
+  hosts: web
+  become: true
+
+  vars:
+    frontend_build: "{{ playbook_dir }}/../../frontend/build"
+    web_root: /var/www/html
+
+  tasks:
+
+    - name: Update apt package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+
+    - name: Remove default Nginx website
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Reload Nginx
+
+    - name: Create frontend web root
+      file:
+        path: "{{ web_root }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+
+    - name: Copy React production build
+      copy:
+        src: "{{ frontend_build }}/"
+        dest: "{{ web_root }}/"
+        owner: www-data
+        group: www-data
+        directory_mode: '0755'
+        mode: '0644'
+      notify: Reload Nginx
+
+    - name: Configure Nginx for TravelMemory
+      copy:
+        dest: /etc/nginx/sites-available/travelmemory
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          server {
+              listen 80 default_server;
+              listen [::]:80 default_server;
+
+              server_name _;
+
+              root /var/www/html;
+              index index.html;
+
+              location / {
+                  try_files $uri $uri/ /index.html;
+              }
+          }
+      notify: Reload Nginx
+
+    - name: Enable TravelMemory Nginx site
+      file:
+        src: /etc/nginx/sites-available/travelmemory
+        dest: /etc/nginx/sites-enabled/travelmemory
+        state: link
+      notify: Reload Nginx
+
+    - name: Validate Nginx configuration
+      command: nginx -t
+      changed_when: false
+
+    - name: Ensure Nginx is enabled and running
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: Reload Nginx
+      service:
+        name: nginx
+        state: reloaded

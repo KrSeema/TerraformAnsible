@@ -1,0 +1,48 @@
+
+---
+- name: Check MongoDB databases and application user
+  hosts: dbservers
+  become: true
+  vars_files:
+    - group_vars/dbservers/vault.yml
+
+  tasks:
+    - name: List databases and application user permissions
+      shell: |
+        mongosh --quiet \
+          --username "{{ vault_mongodb_admin_user }}" \
+          --password "{{ vault_mongodb_admin_password }}" \
+          --authenticationDatabase admin \
+          --eval '
+            print("DATABASES:");
+            db.adminCommand({listDatabases: 1}).databases.forEach(d => print(d.name));
+
+            print("APPLICATION USER:");
+            printjson(
+              db.getSiblingDB("TravelMemory").getUser("{{ vault_mongodb_app_user }}")
+            );
+          '
+      no_log: true
+      register: mongo_check
+
+    - name: Display diagnostic results
+      debug:
+        var: mongo_check.stdout_lines
+
+    - name: Verify application user authentication
+      shell: |
+        mongosh --quiet \
+          --username "{{ vault_mongodb_app_user }}" \
+          --password "{{ vault_mongodb_app_password }}" \
+          --authenticationDatabase TravelMemory \
+          TravelMemory \
+          --eval '
+            db.runCommand({ ping: 1 });
+            print("APPLICATION USER AUTHENTICATION SUCCESSFUL");
+          '
+      no_log: true
+      register: app_user_check
+
+    - name: Display application authentication result
+      debug:
+        var: app_user_check.stdout_lines

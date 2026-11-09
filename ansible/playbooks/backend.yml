@@ -1,0 +1,106 @@
+
+---
+- name: Deploy TravelMemory Backend
+  hosts: webservers
+  become: true
+  gather_facts: true
+
+  vars:
+    app_dir: /opt/travelmemory/backend
+    archive_path: /tmp/travelmemory-backend.tar.gz
+
+  tasks:
+    - name: Install Node.js and npm
+      apt:
+        name:
+          - nodejs
+          - npm
+        state: present
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Create application directory
+      file:
+        path: /opt/travelmemory
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Extract backend application
+      unarchive:
+        src: "{{ archive_path }}"
+        dest: /opt/travelmemory
+        owner: ubuntu
+        group: ubuntu
+      notify: Restart TravelMemory Backend
+
+    - name: Create uploads directory
+      file:
+        path: "{{ app_dir }}/uploads"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Configure backend environment
+      copy:
+        dest: "{{ app_dir }}/.env"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0600'
+        content: |
+          MONGO_URI=mongodb://{{ vault_mongodb_app_user }}:{{ vault_mongodb_app_password }}@10.0.2.138:27017/travelmemory?authSource=TravelMemory
+          PORT=3001
+          CORS_ORIGIN=http://15.135.173.52
+          UPLOAD_DIR=uploads
+          MAX_UPLOAD_MB=5
+          TRUST_PROXY=0
+      notify: Restart TravelMemory Backend
+
+    - name: Install backend dependencies
+      command: npm ci --omit=dev
+      args:
+        chdir: "{{ app_dir }}"
+      become_user: ubuntu
+
+    - name: Create backend systemd service
+      copy:
+        dest: /etc/systemd/system/travelmemory-backend.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=TravelMemory Backend
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=ubuntu
+          WorkingDirectory={{ app_dir }}
+          ExecStart=/usr/bin/node index.js
+          Restart=always
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+      notify:
+        - Reload systemd
+        - Restart TravelMemory Backend
+
+    - name: Enable and start backend service
+      systemd:
+        name: travelmemory-backend
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart TravelMemory Backend
+      systemd:
+        name: travelmemory-backend
+        state: restarted
+        daemon_reload: yes

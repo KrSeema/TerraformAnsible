@@ -1,0 +1,44 @@
+
+---
+- name: Configure Database Server Firewall
+  hosts: dbservers
+  become: true
+  gather_facts: false
+
+  vars:
+    web_private_ip: "10.0.1.34"
+
+  tasks:
+    - name: Install UFW
+      apt:
+        name: ufw
+        state: present
+        update_cache: yes
+
+    - name: Set default incoming policy
+      community.general.ufw:
+        direction: incoming
+        policy: deny
+
+    - name: Set default outgoing policy
+      community.general.ufw:
+        direction: outgoing
+        policy: allow
+
+    - name: Allow SSH from web server
+      community.general.ufw:
+        rule: allow
+        port: '22'
+        proto: tcp
+        from_ip: "{{ web_private_ip }}"
+
+    - name: Allow MongoDB from web server
+      community.general.ufw:
+        rule: allow
+        port: '27017'
+        proto: tcp
+        from_ip: "{{ web_private_ip }}"
+
+    - name: Enable firewall
+      community.general.ufw:
+        state: enabled
