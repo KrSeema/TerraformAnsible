@@ -2,7 +2,7 @@
 
 ## Project overview
 
-This project deploys the [TravelMemory MERN application](https://github.com/UnpredictablePrashant/TravelMemory) on AWS, following the `MERN_Terraform_Ansible_Assignment_Guide`.
+This project deploys the TravelMemory MERN application on AWS.
 
 - **Terraform** provisions AWS networking, security, IAM resources and EC2 instances.
 - **Ansible** configures the servers and deploys the application.
@@ -11,7 +11,7 @@ This project deploys the [TravelMemory MERN application](https://github.com/Unpr
 - **React** is built for production and served by **Nginx**.
 - **Ansible Vault** protects database credentials.
 
-The application is accessed using the web EC2 instance's public IP; a custom domain is not required.
+The application is accessed using the web EC2 instance's public IP.
 
 ## Architecture
 
@@ -95,6 +95,7 @@ TerraformAnsible/
 │       └── check-mongodb.yml   # MongoDB verification
 ├── backend/                    # TravelMemory Express API source
 ├── frontend/                   # TravelMemory React source
+└── screenshots                 # TravelMemory Screenshots
 └── README.md
 ```
 
@@ -113,6 +114,7 @@ aws configure get region
 terraform version
 ansible --version
 ```
+![AWS Identity](screenshots/AWS_Details.png)
 
 Use an SSH key pair for EC2 access. Keep the private key on the administrator's workstation; never commit it to Git.
 
@@ -128,6 +130,11 @@ terraform validate
 terraform plan
 terraform apply
 ```
+![Terraform Init](screenshots/terraform_init.png)
+
+![Terraform Plan](screenshots/terraform_plan.png)
+
+![Terraform Apply](screenshots/terraform_apply.png)
 
 Review the plan before approving `terraform apply`. Record the outputs:
 
@@ -135,6 +142,7 @@ Review the plan before approving `terraform apply`. Record the outputs:
 terraform output
 terraform state list
 ```
+![Terraform Output](screenshots/terraform_output.png)
 
 **State-file safety:** Never commit `terraform.tfstate`, state backups, saved plan files or secrets. A secured remote S3 backend with state locking is recommended for shared or long-lived environments.
 
@@ -150,6 +158,7 @@ Test connectivity:
 cd ../ansible
 ansible all -m ping
 ```
+![Ansible Ping](screenshots/ansible_ping.png)
 
 Both web and database hosts should return `SUCCESS` and `pong`.
 
@@ -160,6 +169,9 @@ MongoDB credentials are stored using Ansible Vault rather than plaintext variabl
 ```bash
 ansible-playbook playbooks/database.yml --ask-vault-pass
 ```
+![Ansible Vault](screenshots/ansible_vault-1.png)
+![Ansible Vault](screenshots/ansible_vault-2.png)
+![Ansible Vault](screenshots/ansible_vault-3.png)
 
 Do not commit the Vault password or decrypted secret files.
 
@@ -182,6 +194,7 @@ Run and verify:
 ansible-playbook playbooks/database.yml --ask-vault-pass
 ansible-playbook playbooks/check-mongodb.yml --ask-vault-pass
 ```
+![Install and secure MongoDB](screenshots/ansible_playbook-1.png)
 
 ## 4. Deploy the Node.js backend
 
@@ -195,6 +208,7 @@ The `backend.yml` playbook deploys the Express API under `/opt/travelmemory/back
 ```bash
 ansible-playbook playbooks/backend.yml --ask-vault-pass
 ```
+![Node.js backend](screenshots/ansible_playbook-2.png)
 
 ## 5. Deploy React and configure Nginx
 
@@ -208,6 +222,13 @@ The `frontend.yml` playbook publishes the React production build and configures 
 ```bash
 ansible-playbook playbooks/frontend.yml --ask-vault-pass
 ```
+![React and configure Nginx](screenshots/ansible_playbook-3.png)
+
+![Configure Nginx](screenshots/Backend_Nginx_Status.png)
+
+### Reverse Proxy
+
+![Configure Nginx](screenshots/Reverse_Proxy.png)
 
 React environment variables used during compilation are embedded in the production build. If the API configuration changes, rebuild React and redeploy the build.
 
@@ -218,16 +239,17 @@ Open the latest public IP of the web EC2 instance:
 ```text
 http://<WEB_EC2_PUBLIC_IP>
 ```
+![Access the Application](screenshots/app_homepage.png)
 
-The last recorded public IP was `15.135.173.52`; it may change after an EC2 stop/start unless an Elastic IP is associated with the web instance. Confirm the current address using Terraform outputs or EC2 instance details.
+![Access the Application](screenshots/Add_Travel.png)
 
-Useful endpoints:
+![Access the Application](screenshots/Record_saved.png)
 
-```text
-http://<WEB_EC2_PUBLIC_IP>/           # React application
-http://<WEB_EC2_PUBLIC_IP>/hello      # Backend hello endpoint through Nginx
-http://<WEB_EC2_PUBLIC_IP>/trip       # Trips API through Nginx
-```
+![Access the Application](screenshots/featured_trips.png)
+
+![Access the Application](screenshots/trip_details.png)
+
+
 
 ## 7. Verification and results
 
