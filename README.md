@@ -15,30 +15,7 @@ The application is accessed using the web EC2 instance's public IP.
 
 ## Architecture
 
-```mermaid
-flowchart TB
-    USER["Users / Browser"]
-    ADMIN["Administrator workstation<br/>Terraform + Ansible"]
-    subgraph AWS["AWS – ap-southeast-2"]
-      subgraph VPC["VPC – 10.0.0.0/16"]
-        subgraph PUB["Public subnet – 10.0.1.0/24"]
-          WEB["Web EC2 – Ubuntu 24.04<br/>Nginx :80/:443<br/>React production build<br/>Node.js / Express :3001"]
-          NAT["NAT Gateway + Elastic IP"]
-        end
-        subgraph PRIV["Private subnet – 10.0.2.0/24"]
-          DB["Database EC2 – Ubuntu 24.04<br/>MongoDB 8.0 :27017<br/>Authorization enabled<br/>No public IP"]
-        end
-        IGW["Internet Gateway"]
-      end
-    end
-    USER -->|"HTTP / HTTPS"| IGW --> WEB
-    WEB -->|"Nginx proxies API routes to localhost:3001"| WEB
-    WEB -->|"Private network – TCP 27017"| DB
-    DB -.->|"Outbound package downloads"| NAT --> IGW
-    ADMIN -->|"AWS API / Terraform"| AWS
-    ADMIN -->|"SSH / Ansible"| WEB
-    WEB -->|"SSH ProxyJump"| DB
-```
+![Architecture](screenshots/ArchitectureDiagram.png)
 
 ### Network configuration
 
@@ -306,6 +283,17 @@ Capture and include these screenshots in the assignment report or evidence folde
 - [ ] Second Ansible run showing idempotency (`changed=0`) where applicable.
 - [ ] Terraform destroy output after evidence collection.
 
+![Evidence](screenshots/AWS_Resources-1.png)
+
+![Evidence](screenshots/AWS_Resources-2.png)
+
+![Evidence](screenshots/AWS_Resources-3.png)
+
+![Evidence](screenshots/MongoDB_Authentication-1.png)
+
+![Evidence](screenshots/MongoDB_Authentication-2.png)
+
+
 ## 10. Cleanup
 
 After collecting the required screenshots and assignment evidence, destroy the resources if they are no longer needed. This helps avoid ongoing AWS charges.
@@ -315,6 +303,11 @@ cd terraform
 terraform plan -destroy
 terraform destroy
 ```
+
+![Evidence](screenshots/terraform_destroy-1.png)
+
+![Evidence](screenshots/terraform_destroy-2.png)
+
 
 Review the destroy plan carefully before confirming. Ensure that no resources that must be retained are managed by the same Terraform state.
 
